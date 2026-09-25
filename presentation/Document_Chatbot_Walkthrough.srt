@@ -1,0 +1,192 @@
+1
+00:00:01,105 --> 00:00:02,456
+This is Document Chatbot:
+
+2
+00:00:02,506 --> 00:00:06,435
+an AI assistant that answers questions using only the files you upload.
+
+3
+00:00:07,586 --> 00:00:12,330
+It's built with a Vue 3 frontend, a Laravel 12 API, a MySQL database,
+
+4
+00:00:12,380 --> 00:00:15,456
+and Google Gemini for embeddings and answers.
+
+5
+00:00:17,910 --> 00:00:18,758
+Here's the app.
+
+6
+00:00:18,808 --> 00:00:22,528
+On the left, the knowledge base lists every file with its size,
+
+7
+00:00:22,578 --> 00:00:23,904
+chunk count and status.
+
+8
+00:00:23,954 --> 00:00:25,400
+On the right is the chat.
+
+9
+00:00:25,802 --> 00:00:27,608
+Let's upload the employee handbook.
+
+10
+00:00:27,658 --> 00:00:31,532
+A background job processes it, and the status moves from pending to ready.
+
+11
+00:00:31,934 --> 00:00:33,902
+Now we ask a question in plain English.
+
+12
+00:00:33,952 --> 00:00:38,144
+The answer is built only from our documents, and the source files appear below it.
+
+13
+00:00:41,751 --> 00:00:44,581
+Follow-up questions keep the conversation's context,
+
+14
+00:00:44,631 --> 00:00:46,741
+so 'what about sick leave?' just works.
+
+15
+00:00:49,448 --> 00:00:53,500
+New chat starts a fresh conversation, and outdated files can be deleted,
+
+16
+00:00:53,550 --> 00:00:54,868
+along with their chunks.
+
+17
+00:00:56,375 --> 00:01:00,027
+Now let's see how it works under the hood, by following two flows:
+
+18
+00:01:00,077 --> 00:01:02,495
+uploading a document, and asking a question.
+
+19
+00:01:03,700 --> 00:01:08,179
+When a file is dropped, DocumentPanel's upload function checks the size limit,
+
+20
+00:01:08,229 --> 00:01:11,140
+then calls uploadDocument, and tracks the progress.
+
+21
+00:01:12,044 --> 00:01:16,427
+api.js posts the file as multipart form data to /api/documents,
+
+22
+00:01:16,477 --> 00:01:21,494
+and the Laravel route file maps it to DocumentController's store method.
+
+23
+00:01:22,398 --> 00:01:26,633
+Store validates the file type and its twenty megabyte limit, saves it,
+
+24
+00:01:26,683 --> 00:01:31,468
+creates a pending Document, dispatches a queue job, and returns 201 right away.
+
+25
+00:01:32,371 --> 00:01:35,272
+The ProcessDocument job extracts and chunks the text,
+
+26
+00:01:35,322 --> 00:01:37,555
+embeds the chunks with Gemini in batches,
+
+27
+00:01:37,605 --> 00:01:41,341
+and saves them in one transaction before marking the document ready.
+
+28
+00:01:42,244 --> 00:01:46,483
+Back in Vue, refresh polls every three seconds while a file is processing,
+
+29
+00:01:46,533 --> 00:01:48,744
+so the badge flips to ready on its own.
+
+30
+00:01:49,648 --> 00:01:54,052
+In ChatWindow, send shows the question instantly, starts the typing indicator,
+
+31
+00:01:54,102 --> 00:01:55,308
+and calls askQuestion.
+
+32
+00:01:56,210 --> 00:01:57,933
+The chat route is rate limited.
+
+33
+00:01:57,983 --> 00:02:01,993
+The ask method validates the question and the optional conversation ID,
+
+34
+00:02:02,043 --> 00:02:03,480
+then loads recent history.
+
+35
+00:02:04,385 --> 00:02:05,851
+The question is embedded,
+
+36
+00:02:05,901 --> 00:02:09,852
+and VectorSearch scores every stored chunk with cosine similarity,
+
+37
+00:02:09,902 --> 00:02:11,125
+keeping the top five.
+
+38
+00:02:12,028 --> 00:02:15,633
+The top chunks are sent to Gemini with a strict system prompt.
+
+39
+00:02:15,683 --> 00:02:19,582
+Both messages are saved, and the answer and sources return as JSON.
+
+40
+00:02:19,632 --> 00:02:22,588
+Errors, like rate limits, become friendly messages.
+
+41
+00:02:23,491 --> 00:02:26,281
+Vue saves the conversation ID, pushes the answer,
+
+42
+00:02:26,331 --> 00:02:29,701
+and renders it as sanitized markdown with the source chips.
+
+43
+00:02:30,654 --> 00:02:31,208
+To recap:
+
+44
+00:02:31,258 --> 00:02:32,417
+Vue calls the API.
+
+45
+00:02:32,467 --> 00:02:35,641
+Laravel routes it to a controller, validates it,
+
+46
+00:02:35,691 --> 00:02:38,664
+and services and models read and write MySQL.
+
+47
+00:02:38,915 --> 00:02:42,453
+The result travels back as JSON, and Vue updates the UI.
+
+48
+00:02:42,503 --> 00:02:43,735
+Thanks for watching.
+
